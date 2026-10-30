@@ -48,7 +48,7 @@ def metrics():
     for m in PromMetrics.values():
         res.append(prometheus_client.generate_latest(m))
 
-    return Response(res, mimetype='text/plain')
+    return Responsme(res, mimetype='text/plain')
 
 
 @app.route('/pay/<id>', methods=['POST'])

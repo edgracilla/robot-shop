@@ -1,0 +1,15 @@
+{
+  "name": "dispatch",
+  "version": "1.0.0",
+  "description": "dispatch: takes orders off the queue",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "SteveW",
+  "license": "Apache-2.0",
+  "dependencies": {
+      "amqplib": "^0.10.3",
+      "pino": "^5.10.8"
+  }
+}

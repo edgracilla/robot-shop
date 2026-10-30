@@ -3,3 +3,12 @@
 *-private.*
 vendor/
 Gopkg.lock
+
+# Local runs under Debugt (see DEBUGT.md)
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+package-lock.json
+ratings/html/vendor/
+ratings/html/var/

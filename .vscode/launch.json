@@ -1,0 +1,157 @@
+{
+  // The services run on this machine: three Node, one Python, one Java (shipping) and one PHP
+  // (ratings). Debugt starts and traces all six, and records what the code of the first five
+  // does — PHP is traced by its requests only. The rest of the shop
+  // — the data stores, dispatch (Go) and the storefront — stays in Docker: see
+  // docker-compose.debugt.yaml and DEBUGT.md.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "catalogue-node",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/catalogue/server.js",
+      "cwd": "${workspaceFolder}/catalogue",
+      "console": "internalConsole",
+      "env": {
+        "CATALOGUE_SERVER_PORT": "8081",
+        "MONGO_URL": "mongodb://localhost:27018/catalogue"
+      }
+    },
+    {
+      "name": "user-node",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/user/server.js",
+      "cwd": "${workspaceFolder}/user",
+      "console": "internalConsole",
+      "env": {
+        "USER_SERVER_PORT": "8082",
+        "MONGO_URL": "mongodb://localhost:27018/users",
+        "REDIS_HOST": "localhost"
+      }
+    },
+    {
+      "name": "cart-node",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/cart/server.js",
+      "cwd": "${workspaceFolder}/cart",
+      "console": "internalConsole",
+      "env": {
+        "CART_SERVER_PORT": "8083",
+        "REDIS_HOST": "localhost"
+      }
+    },
+    {
+      "name": "payment-python",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/payment/payment.py",
+      "cwd": "${workspaceFolder}/payment",
+      "python": "${workspaceFolder}/payment/.venv/bin/python",
+      "console": "internalConsole",
+      "env": {
+        "SHOP_PAYMENT_PORT": "8084",
+        "AMQP_HOST": "localhost"
+      }
+    },
+    {
+      // Needs VS Code's Java extensions (redhat.java, vscjava.vscode-java-debug), which build it
+      // from shipping/pom.xml — no Maven to install.
+      "name": "shipping-java",
+      "type": "java",
+      "request": "launch",
+      "mainClass": "com.instana.robotshop.shipping.ShippingServiceApplication",
+      "projectName": "shipping",
+      "cwd": "${workspaceFolder}/shipping",
+      "console": "internalConsole",
+      "env": {
+        "SERVER_PORT": "8085",
+        "DB_HOST": "localhost:3306",
+        "CART_ENDPOINT": "localhost:8083"
+      }
+    },
+    {
+      // Needs PHP with Xdebug on this machine, Composer's packages in ratings/html/vendor, and
+      // VS Code's PHP Debug extension (xdebug.php-debug) — see DEBUGT.md. PHP's built-in server,
+      // with index.php as its router, since every path is the Symfony app's to answer.
+      "name": "ratings-php",
+      "type": "php",
+      "request": "launch",
+      "runtimeArgs": ["-dxdebug.mode=debug", "-dxdebug.start_with_request=yes", "-ddisplay_errors=0", "-dlog_errors=1", "-S", "localhost:8086"],
+      "program": "${workspaceFolder}/ratings/html/index.php",
+      "cwd": "${workspaceFolder}/ratings/html",
+      "port": 9003,
+      "env": {
+        "APP_ENV": "prod",
+        "CATALOGUE_URL": "http://localhost:8081",
+        "PDO_URL": "mysql:host=127.0.0.1;port=3306;dbname=ratings;charset=utf8mb4",
+        "XDEBUG_CONFIG": "client_port=${port}"
+      }
+    },
+    {
+      "name": "catalogue-go",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/catalogue-go",
+      "env": {
+        "CATALOGUE_SERVER_PORT": "8087",
+        "MONGO_URL": "mongodb://localhost:27018/catalogue"
+      }
+    },
+    {
+      // The Node port of dispatch (Go). It listens on no port: it takes orders off RabbitMQ's
+      // `orders` queue, where payment puts them. The Go one in Docker is on the same queue, and
+      // the two take turns — stop that container (`docker compose stop dispatch`) for this one
+      // to get every order.
+      "name": "dispatch-node",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/dispatch-node/server.js",
+      "cwd": "${workspaceFolder}/dispatch-node",
+      "console": "internalConsole",
+      // It logs with pino, straight to stdout — which the debugger passes on only when asked.
+      // Without this the Debug Console stays empty and a ready pattern has nothing to match.
+      "outputCapture": "std",
+      "env": {
+        "AMQP_HOST": "localhost"
+      }
+    },
+    {
+      // dispatch itself, in Go, built and run by VS Code's Go extension (golang.go) under Delve.
+      // It needs Go on this machine; dispatch/go.mod and go.sum are what it builds from — the
+      // Dockerfile makes its own, so the container is unchanged by them. Like the Node port it
+      // listens on no port and takes orders off RabbitMQ's `orders` queue: run one of the three
+      // — this, dispatch-node, or the container — or they take turns at the orders.
+      // Debugt traces it by its messages: each order it takes off the queue is a hop, CONSUME
+      // orders, under payment's publish. It acknowledges nothing (autoAck), so that hop ends as
+      // the order is handed over, and what dispatch then does with it is not under the hop —
+      // a Go consumer is a loop, not a function Debugt can stand around.
+      "name": "dispatch-go",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/dispatch",
+      "cwd": "${workspaceFolder}/dispatch",
+      "env": {
+        "AMQP_HOST": "localhost"
+      }
+    },
+    {
+      // Not one of the shop's own: the checkout with the browser taken out. One POST /buy calls
+      // every service above in order, so a single send draws the whole shop as one trace.
+      // See buy-a-robot/server.js.
+      "name": "buy-a-robot",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/buy-a-robot/server.js",
+      "cwd": "${workspaceFolder}/buy-a-robot",
+      "console": "internalConsole",
+      "env": {
+        "BUY_SERVER_PORT": "8088"
+      }
+    }
+  ]
+}

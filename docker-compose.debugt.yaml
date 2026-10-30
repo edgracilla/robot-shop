@@ -1,0 +1,31 @@
+# Robot Shop with its Node, Python and Java services run from VS Code by Debugt, and the rest in Docker.
+#
+#   docker compose -f docker-compose.yaml -f docker-compose.debugt.yaml up -d \
+#     mongodb redis rabbitmq mysql dispatch web
+#
+# Left out of that list, and so not started: catalogue, user, cart, payment, shipping and ratings.
+# Those six run on this machine, from .vscode/launch.json, on ports 8081–8086. What stays in Docker reaches
+# them through host.docker.internal, and they reach the data stores through the ports published here.
+services:
+  mongodb:
+    ports:
+      # 27018 on this machine: 27017 is very often taken by a MongoDB of your own.
+      - "27018:27017"
+  redis:
+    ports:
+      - "6379:6379"
+  rabbitmq:
+    ports:
+      - "5672:5672"
+      # The management console: http://localhost:15672, guest / guest.
+      - "15672:15672"
+  mysql:
+    ports:
+      # For shipping, which reads its cities from here, and ratings, which keeps its scores here.
+      - "3306:3306"
+  web:
+    # On nothing: the original list is the services we run ourselves.
+    depends_on: !reset []
+    volumes:
+      # The same nginx config, with the six services' locations pointed at this machine's ports.
+      - ./web/default.conf.debugt.template:/etc/nginx/conf.d/default.conf.template:ro

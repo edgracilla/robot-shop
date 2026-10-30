@@ -1,0 +1,147 @@
+{
+  "info": {
+    "name": "Robot Shop (Debugt)",
+    "description": "Requests against Robot Shop's services as Debugt runs them locally. See DEBUGT.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "cartUrl",
+      "value": "http://localhost:8083",
+      "description": "The cart service, run from VS Code. Through the storefront instead: http://localhost:8080/api/cart"
+    },
+    {
+      "key": "paymentUrl",
+      "value": "http://localhost:8084",
+      "description": "The payment service, run from VS Code. Through the storefront instead: http://localhost:8080/api/payment"
+    },
+    {
+      "key": "shippingUrl",
+      "value": "http://localhost:8085",
+      "description": "The shipping service, run from VS Code. Through the storefront instead: http://localhost:8080/api/shipping"
+    },
+    {
+      "key": "userId",
+      "value": "postman-user",
+      "description": "Whose cart. Any text: a cart is made for an id the first time it is added to."
+    },
+    {
+      "key": "sku",
+      "value": "HPTD",
+      "description": "A product's SKU, from GET http://localhost:8081/products \u2014 HPTD, UHJ, EPE, EMM, SHCE, RED, RMC, STAN-1, Watson. Ewooid and CNA are out of stock."
+    },
+    {
+      "key": "qty",
+      "value": "1"
+    },
+    {
+      "key": "cityId",
+      "value": "4036191",
+      "description": "A city's uuid, from GET {{shippingUrl}}/cities/<country code> or /match/<country code>/<text>. 4036191 is Abberley, gb."
+    }
+  ],
+  "item": [
+    {
+      "name": "Add to cart",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{cartUrl}}/add/{{userId}}/{{sku}}/{{qty}}",
+          "host": [
+            "{{cartUrl}}"
+          ],
+          "path": [
+            "add",
+            "{{userId}}",
+            "{{sku}}",
+            "{{qty}}"
+          ]
+        },
+        "description": "Adds a product to a user's cart and returns the cart. The cart service looks the product up in catalogue first \u2014 that call is the hop Debugt redirects to localhost:8081. 400 for a quantity that is not a whole number above zero; 404 for a SKU catalogue does not have, or one that is out of stock."
+      }
+    },
+    {
+      "name": "Calculate shipping",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{shippingUrl}}/calc/{{cityId}}",
+          "host": [
+            "{{shippingUrl}}"
+          ],
+          "path": [
+            "calc",
+            "{{cityId}}"
+          ]
+        },
+        "description": "The distance to a city and what shipping there costs. Reads the city from MySQL; calls no other service. 404 for a city id that does not exist."
+      }
+    },
+    {
+      "name": "Confirm shipping",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"distance\": 926,\n  \"cost\": 46.3,\n  \"location\": \"United Kingdom Abberley\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{shippingUrl}}/confirm/{{userId}}",
+          "host": [
+            "{{shippingUrl}}"
+          ],
+          "path": [
+            "confirm",
+            "{{userId}}"
+          ]
+        },
+        "description": "Adds shipping to the user's cart and returns the cart, now with a SHIP item \u2014 which is the body Pay wants. Shipping passes the body on to the cart service (POST /shipping/<id>), so the user needs a cart first: run Add to cart. 404 'cart not found' when there is none, or when distance, cost or location is missing. Content-Type must be application/json."
+      }
+    },
+    {
+      "name": "Pay",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"total\": 1210,\n  \"tax\": 201.67,\n  \"items\": [\n    {\n      \"qty\": 1,\n      \"sku\": \"HPTD\",\n      \"name\": \"High-Powered Travel Droid\",\n      \"price\": 1200,\n      \"subtotal\": 1200\n    },\n    {\n      \"qty\": 1,\n      \"sku\": \"SHIP\",\n      \"name\": \"shipping to London\",\n      \"price\": 10,\n      \"subtotal\": 10\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{paymentUrl}}/pay/{{userId}}",
+          "host": [
+            "{{paymentUrl}}"
+          ],
+          "path": [
+            "pay",
+            "{{userId}}"
+          ]
+        },
+        "description": "Pays for a cart and returns the order id. The body is the cart itself: payment does not read it from the cart service. It must have a total above zero and a SHIP item, or the answer is 400 'cart not valid'. On the way payment calls user (does this user exist), the payment gateway, RabbitMQ (the order, which dispatch picks up) and cart (delete the user's cart) \u2014 the user and cart calls are the hops Debugt redirects to localhost:8082 and :8083."
+      }
+    }
+  ]
+}
